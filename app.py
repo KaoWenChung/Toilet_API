@@ -1,3 +1,6 @@
+import csv
+import io
+from datetime import datetime
 from flask import Flask, jsonify, request
 from config import Config
 from models import db, Toilet
@@ -21,6 +24,32 @@ def get_toilets():
     print(f"toilets: {toilets}")
     return jsonify([toilet.to_dict() for toilet in toilets])
 
+@app.route('/import-csv', methods=['POST'])
+def import_csv():
+    print("got the file")
+    file = request.files['file']
+    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+    csv_input = csv.reader(stream)
+
+    next(csv_input, None)  # Skip the header row if present
+
+    for row in csv_input:
+        new_toilet = Toilet(
+            name=row[0],
+            status=row[1],
+            timeOfDay=row[2],
+            openingHours=row[3],
+            buildingNumber=row[4],
+            street=row[5],
+            postcode=row[6],
+            longitude=float(row[7]),
+            latitude=float(row[8]),
+            lastUploaded=datetime.strptime(row[9], '%Y-%m-%d %H:%M:%S') if row[9] else None
+        )
+        db.session.add(new_toilet)
+
+    db.session.commit()
+    return jsonify({"message": "CSV data imported successfully"}), 200
 @app.route('/toilets', methods=['POST'])
 def add_toilet():
     toilet_data = request.json
