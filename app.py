@@ -24,6 +24,23 @@ def get_toilets():
     toilets_data = [toilet.to_dict() for toilet in toilets]
     return standard_response(toilets_data, 200, "success")
 
+@app.route('/toiletList', methods=['DELETE'])
+def delete_toilet():
+    toilet_id = request.args.get('id', type=int)
+    if not toilet_id:
+        return standard_response(None, 400, "Toilet ID is required")
+
+    toilet = Toilet.query.get(toilet_id)
+    if toilet is None:
+        return standard_response(None, 404, "Toilet not found")
+
+    try:
+        db.session.delete(toilet)
+        db.session.commit()
+        return standard_response(None, 200, "Toilet deleted successfully")
+    except Exception as e:
+        return standard_response(None, 500, f"Error: {str(e)}")
+
 @app.route('/importToiletsCSV', methods=['POST'])
 def import_csv():
     file = request.files['file']
