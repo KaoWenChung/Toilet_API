@@ -41,31 +41,36 @@ def delete_toilet():
     except Exception as e:
         return standard_response(None, 500, f"Error: {str(e)}")
 
-@app.route('/importToiletsCSV', methods=['POST'])
-def import_csv():
-    file = request.files['file']
-    stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
-    csv_input = csv.reader(stream)
+@app.route('/toiletList', methods=['PUT'])
+def update_toilet():
+    toilet_id = request.args.get('id', type=int)
+    if not toilet_id:
+        return standard_response(None, 400, "Toilet ID is required")
 
-    next(csv_input, None)  # Skip the header row if present
+    toilet = Toilet.query.get(toilet_id)
+    if toilet is None:
+        return standard_response(None, 404, "Toilet not found")
 
-    for row in csv_input:
-        new_toilet = Toilet(
-            name=row[0],
-            status=row[1],
-            timeOfDay=row[2],
-            openingHours=row[3],
-            buildingNumber=row[4],
-            street=row[5],
-            postcode=row[6],
-            longitude=float(row[7]),
-            latitude=float(row[8]),
-            lastUploaded=datetime.strptime(row[9], '%Y-%m-%d %H:%M:%S') if row[9] else None
-        )
-        db.session.add(new_toilet)
+    try:
+        toilet_data = request.json
+        toilet.name = toilet_data.get('name', toilet.name)
+        toilet.status = toilet_data.get('status', toilet.status)
+        toilet.timeOfDay = toilet_data.get('timeOfDay', toilet.timeOfDay)
+        toilet.openingHours = toilet_data.get('openingHours', toilet.openingHours)
+        toilet.buildingNumber = toilet_data.get('buildingNumber', toilet.buildingNumber)
+        toilet.street = toilet_data.get('street', toilet.street)
+        toilet.postcode = toilet_data.get('postcode', toilet.postcode)
+        toilet.longitude = float(toilet_data.get('longitude', toilet.longitude))
+        toilet.latitude = float(toilet_data.get('latitude', toilet.latitude))
+        toilet.lastUploaded = datetime.strptime(toilet_data.get('lastUploaded'),
+                                                '%Y-%m-%d %H:%M:%S') if toilet_data.get(
+            'lastUploaded') else datetime.now()
 
-    db.session.commit()
-    return standard_response(status="CSV data imported successfully")
+        db.session.commit()
+        return standard_response(toilet.to_dict(), 200, "Toilet updated successfully")
+    except Exception as e:
+        return standard_response({"error": str(e)}, 500, "error")
+
 @app.route('/addToilet', methods=['POST'])
 def add_toilet():
     toilet_data = request.json
@@ -96,6 +101,32 @@ def add_toilet():
         return standard_response(toilet.to_dict(), 201, "success")
     except Exception as e:
         return standard_response({"error": str(e)}, 500, "error")
+
+    @app.route('/importToiletsCSV', methods=['POST'])
+    def import_csv():
+        file = request.files['file']
+        stream = io.StringIO(file.stream.read().decode("UTF8"), newline=None)
+        csv_input = csv.reader(stream)
+
+        next(csv_input, None)  # Skip the header row if present
+
+        for row in csv_input:
+            new_toilet = Toilet(
+                name=row[0],
+                status=row[1],
+                timeOfDay=row[2],
+                openingHours=row[3],
+                buildingNumber=row[4],
+                street=row[5],
+                postcode=row[6],
+                longitude=float(row[7]),
+                latitude=float(row[8]),
+                lastUploaded=datetime.strptime(row[9], '%Y-%m-%d %H:%M:%S') if row[9] else None
+            )
+            db.session.add(new_toilet)
+
+        db.session.commit()
+        return standard_response(status="CSV data imported successfully")
 
 if __name__ == "__main__":
     app.run(debug=True)
